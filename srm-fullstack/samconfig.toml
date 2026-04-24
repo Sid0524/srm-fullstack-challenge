@@ -1,0 +1,14 @@
+version = 0.1
+
+[default.global.parameters]
+stack_name = "srm-fullstack"
+
+[default.build.parameters]
+cached = true
+parallel = true
+
+[default.deploy.parameters]
+region = "ap-south-1"
+confirm_changeset = true
+capabilities = "CAPABILITY_IAM"
+resolve_s3 = true

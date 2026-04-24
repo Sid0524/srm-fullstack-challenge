@@ -1,0 +1,21 @@
+{
+  "name": "srm-fullstack-backend",
+  "version": "1.0.0",
+  "description": "REST API for tree/cycle processing challenge",
+  "main": "src/handler.js",
+  "scripts": {
+    "start": "node src/app.js",
+    "dev": "nodemon src/app.js"
+  },
+  "dependencies": {
+    "@vendia/serverless-express": "^4.12.0",
+    "cors": "^2.8.5",
+    "express": "^4.18.2"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
