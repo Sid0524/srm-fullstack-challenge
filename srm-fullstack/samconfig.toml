@@ -2,6 +2,7 @@ version = 0.1
 
 [default.global.parameters]
 stack_name = "srm-fullstack"
+region = "ap-south-1"
 
 [default.build.parameters]
 cached = true
@@ -12,3 +13,5 @@ region = "ap-south-1"
 confirm_changeset = true
 capabilities = "CAPABILITY_IAM"
 resolve_s3 = true
+s3_prefix = "srm-fullstack"
+image_repositories = []
