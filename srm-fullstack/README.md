@@ -1,6 +1,6 @@
 # srm-fullstack
 
-REST API challenge: tree and cycle detection from edge lists, with a static frontend.
+REST API challenge — processes directed edge lists to build forest trees, detect cycles, and return structured JSON. Deployed on AWS Lambda + API Gateway with a static frontend on S3.
 
 ## Project Structure
 
@@ -8,64 +8,52 @@ REST API challenge: tree and cycle detection from edge lists, with a static fron
 srm-fullstack/
 ├── backend/
 │   ├── src/
-│   │   ├── handler.js     # AWS Lambda entry point
-│   │   ├── app.js         # Express app + POST /bfhl route
-│   │   └── processor.js   # All tree/cycle logic
+│   │   ├── handler.js      # AWS Lambda entry point
+│   │   ├── app.js          # Express app + POST /bfhl route
+│   │   └── processor.js    # Validation, tree building, cycle detection
 │   ├── package.json
 │   └── .gitignore
 ├── frontend/
-│   ├── index.html
-│   ├── style.css
-│   └── app.js
+│   ├── index.html          # Single-page UI
+│   ├── style.css           # Dark theme, responsive
+│   └── app.js              # Fetch + DOM rendering
+├── template.yaml           # AWS SAM template
+├── samconfig.toml          # SAM deploy defaults
+├── deploy.ps1              # S3 frontend deploy script (Windows)
 └── README.md
 ```
 
 ## Local Setup
 
 ```bash
-cd srm-fullstack/backend
+cd backend
 npm install
-npm run dev        # starts on http://localhost:3000
+npm run dev       # http://localhost:3000
 ```
 
-Open `frontend/index.html` directly in a browser, or serve it:
+Open `frontend/index.html` in a browser. Set the API Base URL to `http://localhost:3000`.
 
-```bash
-npx serve srm-fullstack/frontend
-```
+## API
 
-## Updating Your Identity
+**`POST /bfhl`**
 
-Open `backend/src/processor.js` and replace the placeholders at the top:
-
-```js
-// TODO: Replace with your actual details
-const USER_ID = 'johndoe_17091999';        // fullname_ddmmyyyy
-const EMAIL_ID = 'john.doe@college.edu';
-const COLLEGE_ROLL_NUMBER = '21CS1001';
-```
-
-## API Documentation
-
-**POST** `/bfhl`
-
-**Request:**
+**Request**
 ```json
 {
-  "data": ["A->B", "A->C", "B->D", "X->Y", "Y->Z", "Z->X", "G->H", "G->H", "G->I", "hello"]
+  "data": ["A->B", "A->C", "B->D", "X->Y", "Y->Z", "Z->X", "G->H", "G->H", "hello"]
 }
 ```
 
-**Response:**
+**Response**
 ```json
 {
-  "user_id": "johndoe_17091999",
-  "email_id": "john.doe@college.edu",
-  "college_roll_number": "21CS1001",
+  "user_id": "akulasidharthnaidu_24052006",
+  "email_id": "sa0858@srmist.edu.in",
+  "college_roll_number": "RA2311003010088",
   "hierarchies": [
     { "root": "A", "tree": { "A": { "B": { "D": {} }, "C": {} } }, "depth": 3 },
     { "root": "X", "tree": {}, "has_cycle": true },
-    { "root": "G", "tree": { "G": { "H": {}, "I": {} } }, "depth": 2 }
+    { "root": "G", "tree": { "G": { "H": {} } }, "depth": 2 }
   ],
   "invalid_entries": ["hello"],
   "duplicate_edges": ["G->H"],
@@ -77,52 +65,52 @@ const COLLEGE_ROLL_NUMBER = '21CS1001';
 }
 ```
 
-**Rules:**
-- Valid edges: single uppercase letter `->` single uppercase letter
-- Self-loops (`A->A`) are invalid
-- Duplicate pairs are reported once in `duplicate_edges`
-- Multi-parent nodes: first-encountered parent wins; subsequent parents are silently discarded
-- Cyclic components: `tree: {}`, `has_cycle: true`, no `depth` field
-- Acyclic components: full nested tree, `depth` = longest root-to-leaf path length
+**Processing rules**
+- Valid edge format: `X->Y` where X and Y are single uppercase letters A–Z
+- Self-loops (`A->A`), malformed strings, and empty entries → `invalid_entries`
+- Repeated identical edges → `duplicate_edges` (reported once per unique pair)
+- Node with multiple parents → first-encountered parent wins; extra parents silently dropped
+- Cyclic component → `{ root, tree: {}, has_cycle: true }` (no `depth` field)
+- Acyclic component → `{ root, tree: {...}, depth }` (no `has_cycle` field)
+- `summary.largest_tree_root` → deepest tree; tiebreak by lexicographically smaller root
 
-## Deploy Backend (AWS SAM)
+## Deploy — Backend (AWS SAM)
 
-Prerequisites: [AWS SAM CLI](https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/install-sam-cli.html) and AWS credentials configured.
+Requires [AWS SAM CLI](https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/install-sam-cli.html) and configured AWS credentials.
 
 ```bash
-# Run from the srm-fullstack/ directory
 sam build
-sam deploy --guided
+sam deploy --guided    # first time — saves settings to samconfig.toml
+sam deploy             # subsequent deploys
 ```
 
-`sam deploy --guided` will prompt for stack name, region, etc. and save your choices to `samconfig.toml`. On subsequent deploys just run `sam deploy`.
+Copy the **ApiEndpoint** value from the Outputs section after deploy.
 
-Note the **ApiEndpoint** value printed in the Outputs — this is your Backend API Base URL.
+## Deploy — Frontend (S3)
 
-## Deploy Frontend (S3)
+Run from `srm-fullstack/` on Windows PowerShell:
 
-```bash
-# Create bucket (replace YOUR-BUCKET-NAME with a globally unique name)
-aws s3 mb s3://YOUR-BUCKET-NAME --region ap-south-1
-
-# Enable static website hosting
-aws s3 website s3://YOUR-BUCKET-NAME --index-document index.html
-
-# Make bucket publicly readable
-aws s3api put-bucket-policy --bucket YOUR-BUCKET-NAME --policy '{
-  "Version":"2012-10-17",
-  "Statement":[{
-    "Effect":"Allow",
-    "Principal":"*",
-    "Action":"s3:GetObject",
-    "Resource":"arn:aws:s3:::YOUR-BUCKET-NAME/*"
-  }]
-}'
-
-# Upload frontend files
-aws s3 sync frontend/ s3://YOUR-BUCKET-NAME
+```powershell
+.\deploy.ps1
 ```
 
-Frontend URL: `http://YOUR-BUCKET-NAME.s3-website.ap-south-1.amazonaws.com`
+The script:
+1. Disables S3 public access block on `srm-fullstack-frontend`
+2. Sets bucket ownership to `BucketOwnerPreferred`
+3. Syncs `frontend/` to the bucket
+4. Applies a public-read bucket policy
+
+Frontend URL: `http://srm-fullstack-frontend.s3-website.ap-south-1.amazonaws.com`
 
 Set the API Base URL in the frontend to the SAM **ApiEndpoint** output value.
+
+## Stack
+
+| Layer | Technology |
+|-------|-----------|
+| Runtime | Node.js 18.x |
+| Framework | Express + @vendia/serverless-express |
+| Compute | AWS Lambda |
+| API | AWS API Gateway (HTTP API) |
+| Frontend hosting | AWS S3 static website |
+| IaC | AWS SAM |
